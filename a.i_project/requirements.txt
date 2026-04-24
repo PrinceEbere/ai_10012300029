@@ -1,9 +1,8 @@
 streamlit
+pandas
+numpy
 faiss-cpu
 sentence-transformers
-pandas
-PyPDF2
-groq
-python-dotenv
-numpy
 pdfplumber
+python-dotenv
+groq

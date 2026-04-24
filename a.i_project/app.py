@@ -62,7 +62,7 @@ logging.basicConfig(
 
 
 # ----------------------------
-# DATA LOADING
+# DATA LOADING (UPDATED CSV FIX)
 # ----------------------------
 @st.cache_data
 def load_data():
@@ -71,25 +71,34 @@ def load_data():
 
     logging.info(f"Loaded CSV rows={len(csv_data)}, PDF chars={len(pdf_text)}")
 
-    csv_text = csv_data.astype(str).to_csv(index=False)
+    # 🔥 FIX: Convert CSV rows into meaningful text
+    csv_rows = []
+    for _, row in csv_data.iterrows():
+        row_text = ", ".join([f"{col}: {row[col]}" for col in csv_data.columns])
+        csv_rows.append(row_text)
+
+    csv_text = "\n".join(csv_rows)
+
     return pdf_text + "\n" + csv_text
 
 
 # ----------------------------
-# VECTOR STORE (FIXED)
+# VECTOR STORE
 # ----------------------------
 @st.cache_resource
 def build_vector_store():
     combined_text = load_data()
 
     cleaned = clean_text(combined_text)
-    chunks = chunk_text(cleaned, chunk_size=500, overlap=50)
+
+    # 🔥 Improved chunking
+    chunks = chunk_text(cleaned, chunk_size=300, overlap=50)
 
     chunks = [c for c in chunks if isinstance(c, str) and c.strip()]
 
     embeddings = create_embeddings(chunks)
 
-    # 🔥 IMPORTANT FIX: Normalize embeddings (cosine similarity)
+    # 🔥 Normalize embeddings
     embeddings = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
 
     dim = embeddings.shape[1]
@@ -107,7 +116,7 @@ def build_vector_store():
 # RAG HELPERS
 # ----------------------------
 def expand_query(query):
-    return query + " economic policy budget election government spending"
+    return query + " Ghana election results votes candidates regions budget spending economy policy"
 
 
 def select_context(chunks, scores, max_chars=1200):
@@ -126,7 +135,7 @@ def select_context(chunks, scores, max_chars=1200):
 
 
 # ----------------------------
-# RAG PIPELINE (IMPROVED)
+# RAG PIPELINE
 # ----------------------------
 def rag_pipeline(query, retriever):
     expanded = expand_query(query)
@@ -134,23 +143,20 @@ def rag_pipeline(query, retriever):
     model = get_model()
     query_embedding = model.encode(expanded).astype("float32")
 
-    # 🔥 Normalize query embedding
+    # Normalize query
     query_embedding = query_embedding / np.linalg.norm(query_embedding)
 
     results, scores = retriever.search(query_embedding, k=5)
 
-    # 🔥 If nothing useful found
     if len(results) == 0:
         logging.warning("No relevant chunks retrieved")
         return [], [], [], "I couldn't find relevant information in the documents."
 
-    # Optional rerank
     if len(scores) > 0 and np.max(scores) < 0.45:
         results, scores = retriever.rerank(results, scores)
 
     context = select_context(results, scores)
 
-    # 🔥 Stronger prompt control
     prompt = f"""
 Answer the question using ONLY the context below.
 

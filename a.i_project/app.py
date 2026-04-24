@@ -1,6 +1,7 @@
 # Student: Prince Ebere Enoch, Index: [Your Index Number]
 # CS4241 - Introduction to Artificial Intelligence - 2026
 
+import os
 import logging
 import faiss
 import numpy as np
@@ -11,6 +12,7 @@ from src.embedder import create_embeddings, model as embedder_model
 from src.retriever import Retriever
 from src.generator import generate_response
 
+os.makedirs("logs", exist_ok=True)
 logging.basicConfig(
     filename='logs/experiment_logs.txt',
     level=logging.INFO,

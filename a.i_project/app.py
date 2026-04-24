@@ -10,7 +10,7 @@ import faiss
 from src.loader import load_csv, load_pdf
 from src.cleaner import clean_text
 from src.chunker import chunk_text
-from src.embedder import create_embeddings, model as embedder_model
+from src.embedder import create_embeddings, get_model
 from src.retriever import Retriever
 from src.generator import generate_response
 

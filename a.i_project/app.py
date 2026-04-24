@@ -1,4 +1,4 @@
-# Student: Prince Ebere Enoch, Index: [Your Index Number]
+# Student: Prince Ebere Enoch, Index: 10012300029
 # CS4241 - Introduction to Artificial Intelligence - 2026
 
 import os
@@ -19,10 +19,44 @@ from src.generator import generate_response
 # PAGE CONFIG
 # ----------------------------
 st.set_page_config(
-    page_title="AI RAG Chat Assistant",
+    page_title="AI RAG Assistant",
     page_icon="💬",
     layout="wide"
 )
+
+
+# ----------------------------
+# PROFESSIONAL UI STYLING
+# ----------------------------
+st.markdown("""
+<style>
+.stApp {
+    background-color: #f8fafc;
+}
+
+.block-container {
+    padding-top: 2rem;
+    max-width: 1100px;
+}
+
+/* Chat input */
+.stChatInput input {
+    border-radius: 12px !important;
+    padding: 12px !important;
+}
+
+/* Sidebar */
+section[data-testid="stSidebar"] {
+    background-color: #ffffff;
+    border-right: 1px solid #e5e7eb;
+}
+
+/* Remove default ugly spacing */
+div[data-testid="stMarkdownContainer"] {
+    line-height: 1.6;
+}
+</style>
+""", unsafe_allow_html=True)
 
 
 # ----------------------------
@@ -35,18 +69,6 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
-
-
-# ----------------------------
-# GLOBAL STYLING (CHATGPT STYLE LIGHT IMPROVEMENT)
-# ----------------------------
-st.markdown("""
-<style>
-.stApp {
-    background: linear-gradient(180deg, #f7faff 0%, #ffffff 100%);
-}
-</style>
-""", unsafe_allow_html=True)
 
 
 # ----------------------------
@@ -64,7 +86,7 @@ def load_data():
 
 
 # ----------------------------
-# VECTOR STORE (CACHED)
+# VECTOR STORE
 # ----------------------------
 @st.cache_resource
 def build_vector_store():
@@ -109,7 +131,7 @@ def select_context(chunks, scores, max_chars=1200):
 
 
 # ----------------------------
-# RAG PIPELINE (FIXED + CLEAN)
+# RAG PIPELINE
 # ----------------------------
 def rag_pipeline(query, retriever):
     expanded = expand_query(query)
@@ -130,35 +152,35 @@ def rag_pipeline(query, retriever):
 
 
 # ----------------------------
-# HERO HEADER (CHATGPT STYLE)
+# HEADER (PROFESSIONAL CHATGPT STYLE)
 # ----------------------------
 st.markdown("""
-<div style='text-align:center; padding:1.2rem 0;'>
-    <h1 style='color:#1f2937;'>💬 Academic City AI Assistant</h1>
-    <p style='color:#6b7280; font-size:1rem;'>
-        Chat with your Ghana Budget & Election AI
+<div style="text-align:center; padding:1.5rem 0;">
+    <h1 style="color:#0f172a;">💬 AI RAG Assistant</h1>
+    <p style="color:#64748b;">
+        Ghana Budget & Election Intelligence System
     </p>
 </div>
 """, unsafe_allow_html=True)
 
 
 # ----------------------------
-# SIDEBAR
+# SIDEBAR (CLEAN PRODUCT STYLE)
 # ----------------------------
 with st.sidebar:
     st.title("🎓 AI Assistant")
 
-    st.markdown("### 👤 Student Info")
+    st.markdown("### 👤 Student")
     st.write("Prince Ebere Enoch")
-    st.write("Index: 10012300029")
+    st.write("10012300029")
 
     st.markdown("### ⚙️ System")
     st.write("RAG + FAISS + LLM")
 
-    st.markdown("### 📊 Features")
-    st.write("• Ghana Budget Q&A")
+    st.markdown("### 📊 Capabilities")
+    st.write("• Budget Analysis")
     st.write("• Election Insights")
-    st.write("• Document Search")
+    st.write("• Document QA")
 
     st.markdown("---")
 
@@ -167,26 +189,30 @@ with st.sidebar:
 
 
 # ----------------------------
-# CHAT MEMORY INIT
+# CHAT MEMORY
 # ----------------------------
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
 
 # ----------------------------
-# DISPLAY CHAT HISTORY
+# LOAD VECTOR STORE
 # ----------------------------
 retriever, chunks = build_vector_store()
 
+
+# ----------------------------
+# CHAT DISPLAY
+# ----------------------------
 for msg in st.session_state.chat_history:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
 
 # ----------------------------
-# INPUT BOX (CHATGPT STYLE)
+# INPUT (CHATGPT STYLE)
 # ----------------------------
-query = st.chat_input("Ask anything about Ghana budget or elections...")
+query = st.chat_input("Ask about Ghana budget or elections...")
 
 if query:
 
@@ -199,30 +225,39 @@ if query:
     with st.chat_message("user"):
         st.markdown(query)
 
-    # assistant response
+    # assistant message
     with st.chat_message("assistant"):
-        with st.spinner("Thinking... 🤔"):
+        with st.spinner("Analyzing documents..."):
 
             results, scores, context, answer = rag_pipeline(query, retriever)
 
+            # ----------------------------
+            # CLEAN PROFESSIONAL ANSWER CARD
+            # ----------------------------
             st.markdown(f"""
             <div style="
-                background: linear-gradient(135deg, #ffffff, #f3f6ff);
+                background-color: #ffffff;
+                border: 1px solid #e5e7eb;
+                border-left: 5px solid #2563eb;
                 padding: 1.2rem;
-                border-radius: 14px;
-                border-left: 5px solid #3b82f6;
-                box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+                border-radius: 12px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.04);
                 color: #111827;
+                line-height: 1.6;
             ">
             {answer}
             </div>
             """, unsafe_allow_html=True)
 
+            # ----------------------------
+            # SOURCES
+            # ----------------------------
             with st.expander("📄 Retrieved Context"):
                 for i, (res, score) in enumerate(zip(results, scores)):
-                    st.markdown(f"**Chunk {i+1} | Score: {score:.2f}**")
+                    st.markdown(f"**Source {i+1} | Score: {score:.2f}**")
                     st.write(res[:250])
 
+    # save chat
     st.session_state.chat_history.append({
         "role": "assistant",
         "content": answer
@@ -236,6 +271,8 @@ if query:
 # ----------------------------
 st.markdown("---")
 st.markdown(
-    "<div style='text-align:center; color:gray;'>Built with RAG • Academic City • 2026</div>",
+    "<div style='text-align:center; color:#94a3b8; font-size:0.85rem;'>"
+    "AI RAG System • Academic City • 2026"
+    "</div>",
     unsafe_allow_html=True
 )

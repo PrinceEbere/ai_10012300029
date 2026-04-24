@@ -16,7 +16,7 @@ from src.generator import generate_response
 
 
 # ----------------------------
-# SAFE LOGGING SETUP
+# LOGGING SETUP
 # ----------------------------
 os.makedirs("logs", exist_ok=True)
 
@@ -28,7 +28,7 @@ logging.basicConfig(
 
 
 # ----------------------------
-# CACHED DATA LOADING (IMPORTANT FIX)
+# DATA LOADING (CACHED)
 # ----------------------------
 @st.cache_data
 def load_data():
@@ -42,14 +42,15 @@ def load_data():
 
 
 # ----------------------------
-# CACHED PROCESSING PIPELINE
+# VECTOR STORE (CACHED)
 # ----------------------------
 @st.cache_resource
 def build_vector_store():
     combined_text = load_data()
 
-    clean = clean_text(combined_text)
-    chunks = chunk_text(clean, chunk_size=500, overlap=50)
+    cleaned = clean_text(combined_text)
+    chunks = chunk_text(cleaned, chunk_size=500, overlap=50)
+
     chunks = [c for c in chunks if isinstance(c, str) and c.strip()]
 
     embeddings = create_embeddings(chunks)
@@ -64,7 +65,7 @@ def build_vector_store():
 
 
 # ----------------------------
-# RAG FUNCTIONS
+# RAG HELPERS
 # ----------------------------
 def expand_query(query):
     synonyms = [
@@ -91,14 +92,21 @@ def select_context(chunks, scores, max_chars=1200):
     return selected
 
 
+# ----------------------------
+# RAG PIPELINE (FIXED)
+# ----------------------------
 def rag_pipeline(query, retriever):
     expanded = expand_query(query)
 
     model = get_model()
-    query_embedding = model.encode(expanded_query).astype("float32")
+
+    # FIX: use correct variable
+    query_embedding = model.encode(expanded).astype("float32")
+
     results, scores = retriever.search(query_embedding, k=5)
 
-    if len(scores) > 0 and np.min(scores) < 0.45:
+    # FIX: FAISS IP similarity (higher = better)
+    if len(scores) > 0 and np.max(scores) < 0.45:
         results, scores = retriever.rerank(results, scores)
 
     context = select_context(results, scores)
@@ -112,8 +120,13 @@ def rag_pipeline(query, retriever):
 # STREAMLIT UI
 # ----------------------------
 def main():
-    st.title("🇬🇭 AI RAG System - Academic City Project")
+    st.set_page_config(
+        page_title="AI RAG System",
+        page_icon="🇬🇭",
+        layout="wide"
+    )
 
+    st.title("🇬🇭 AI RAG System - Academic City Project")
     st.write("Ask questions about Ghana election results or budget documents.")
 
     retriever, chunks = build_vector_store()
@@ -125,11 +138,12 @@ def main():
             results, scores, context, answer = rag_pipeline(query, retriever)
 
         st.subheader("🤖 Answer")
-        st.write(answer)
+        st.success(answer)
 
         st.subheader("📄 Retrieved Context")
+
         for i, (chunk, score) in enumerate(zip(results, scores)):
-            st.write(f"**Chunk {i+1} (Score: {score:.2f})**")
+            st.markdown(f"**Chunk {i+1} | Score: {score:.3f}**")
             st.write(chunk[:300])
 
 

@@ -26,34 +26,24 @@ st.set_page_config(
 
 
 # ----------------------------
-# PROFESSIONAL UI STYLING
+# UI STYLING
 # ----------------------------
 st.markdown("""
 <style>
 .stApp {
     background-color: #f8fafc;
 }
-
 .block-container {
     padding-top: 2rem;
     max-width: 1100px;
 }
-
-/* Chat input */
 .stChatInput input {
     border-radius: 12px !important;
     padding: 12px !important;
 }
-
-/* Sidebar */
 section[data-testid="stSidebar"] {
     background-color: #ffffff;
     border-right: 1px solid #e5e7eb;
-}
-
-/* Remove default ugly spacing */
-div[data-testid="stMarkdownContainer"] {
-    line-height: 1.6;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -72,7 +62,7 @@ logging.basicConfig(
 
 
 # ----------------------------
-# DATA LOADING (CACHED)
+# DATA LOADING
 # ----------------------------
 @st.cache_data
 def load_data():
@@ -86,7 +76,7 @@ def load_data():
 
 
 # ----------------------------
-# VECTOR STORE
+# VECTOR STORE (FIXED)
 # ----------------------------
 @st.cache_resource
 def build_vector_store():
@@ -99,11 +89,16 @@ def build_vector_store():
 
     embeddings = create_embeddings(chunks)
 
+    # 🔥 IMPORTANT FIX: Normalize embeddings (cosine similarity)
+    embeddings = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
+
     dim = embeddings.shape[1]
     index = faiss.IndexFlatIP(dim)
     index.add(embeddings.astype("float32"))
 
     retriever = Retriever(index, chunks)
+
+    logging.info(f"Vector store built with {len(chunks)} chunks")
 
     return retriever, chunks
 
@@ -131,7 +126,7 @@ def select_context(chunks, scores, max_chars=1200):
 
 
 # ----------------------------
-# RAG PIPELINE
+# RAG PIPELINE (IMPROVED)
 # ----------------------------
 def rag_pipeline(query, retriever):
     expanded = expand_query(query)
@@ -139,20 +134,42 @@ def rag_pipeline(query, retriever):
     model = get_model()
     query_embedding = model.encode(expanded).astype("float32")
 
+    # 🔥 Normalize query embedding
+    query_embedding = query_embedding / np.linalg.norm(query_embedding)
+
     results, scores = retriever.search(query_embedding, k=5)
 
+    # 🔥 If nothing useful found
+    if len(results) == 0:
+        logging.warning("No relevant chunks retrieved")
+        return [], [], [], "I couldn't find relevant information in the documents."
+
+    # Optional rerank
     if len(scores) > 0 and np.max(scores) < 0.45:
         results, scores = retriever.rerank(results, scores)
 
     context = select_context(results, scores)
 
-    answer = generate_response(query, context)
+    # 🔥 Stronger prompt control
+    prompt = f"""
+Answer the question using ONLY the context below.
+
+Context:
+{context}
+
+Question:
+{query}
+
+If the answer is not in the context, say "I don't know".
+"""
+
+    answer = generate_response(prompt, context)
 
     return results, scores, context, answer
 
 
 # ----------------------------
-# HEADER (PROFESSIONAL CHATGPT STYLE)
+# HEADER
 # ----------------------------
 st.markdown("""
 <div style="text-align:center; padding:1.5rem 0;">
@@ -165,7 +182,7 @@ st.markdown("""
 
 
 # ----------------------------
-# SIDEBAR (CLEAN PRODUCT STYLE)
+# SIDEBAR
 # ----------------------------
 with st.sidebar:
     st.title("🎓 AI Assistant")
@@ -202,7 +219,7 @@ retriever, chunks = build_vector_store()
 
 
 # ----------------------------
-# CHAT DISPLAY
+# DISPLAY CHAT
 # ----------------------------
 for msg in st.session_state.chat_history:
     with st.chat_message(msg["role"]):
@@ -210,13 +227,12 @@ for msg in st.session_state.chat_history:
 
 
 # ----------------------------
-# INPUT (CHATGPT STYLE)
+# INPUT
 # ----------------------------
 query = st.chat_input("Ask about Ghana budget or elections...")
 
 if query:
 
-    # user message
     st.session_state.chat_history.append({
         "role": "user",
         "content": query
@@ -225,15 +241,11 @@ if query:
     with st.chat_message("user"):
         st.markdown(query)
 
-    # assistant message
     with st.chat_message("assistant"):
         with st.spinner("Analyzing documents..."):
 
             results, scores, context, answer = rag_pipeline(query, retriever)
 
-            # ----------------------------
-            # CLEAN PROFESSIONAL ANSWER CARD
-            # ----------------------------
             st.markdown(f"""
             <div style="
                 background-color: #ffffff;
@@ -249,15 +261,11 @@ if query:
             </div>
             """, unsafe_allow_html=True)
 
-            # ----------------------------
-            # SOURCES
-            # ----------------------------
             with st.expander("📄 Retrieved Context"):
                 for i, (res, score) in enumerate(zip(results, scores)):
                     st.markdown(f"**Source {i+1} | Score: {score:.2f}**")
                     st.write(res[:250])
 
-    # save chat
     st.session_state.chat_history.append({
         "role": "assistant",
         "content": answer
